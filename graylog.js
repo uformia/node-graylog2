@@ -1,122 +1,154 @@
-var zlib = require('zlib'),
-    dgram = require('dgram'),
-    util = require('util');
+var zlib   = require('zlib'),
+    crypto = require('crypto'),
+    dgram  = require('dgram');
 
-GLOBAL.LOG_EMERG=0;    // system is unusable
-GLOBAL.LOG_ALERT=1;    // action must be taken immediately
-GLOBAL.LOG_CRIT=2;     // critical conditions
-GLOBAL.LOG_ERR=3;      // error conditions
-GLOBAL.LOG_ERROR=3;    // because people WILL typo
-GLOBAL.LOG_WARNING=4;  // warning conditions
-GLOBAL.LOG_NOTICE=5;   // normal, but significant, condition
-GLOBAL.LOG_INFO=6;     // informational message
-GLOBAL.LOG_DEBUG=7;    // debug-level message
+var graylog = function graylog(config) {
 
-GLOBAL.graylogHost = 'localhost';
-GLOBAL.graylogPort = 12201;
-GLOBAL.graylogHostname = require('os').hostname();
-GLOBAL.graylogToConsole = false;
-GLOBAL.graylogFacility = 'Node.js';
-GLOBAL.graylogSequence = 0;
+    var key;
 
+    this.config     = config;
 
-function _logToConsole(shortMessage, opts) {
-	var consoleString = shortMessage;
+    this.client     = dgram.createSocket("udp4");
+    this.servers    = config.servers;
+    this.hostname   = config.hostname || require('os').hostname();
+    this.toConsole  = false;
+    this.facility   = config.facility || 'Node.js';
+    this.sequence   = 0;
+};
 
-	if (opts.full_message) {
-		consoleString+=" ("+opts.full_message+")\n";
-	}
+graylog.prototype.level = {
+    EMERG: 0,    // system is unusable
+    ALERT: 1,    // action must be taken immediately
+    CRIT: 2,     // critical conditions
+    ERR: 3,      // error conditions
+    ERROR: 3,    // because people WILL typo
+    WARNING: 4,  // warning conditions
+    NOTICE: 5,   // normal, but significant, condition
+    INFO: 6,     // informational message
+    DEBUG: 7     // debug level message
+};
 
-	var additionalFields = [];
-	Object.keys(opts).forEach(function(key) {
-		if (key[0]=='_' && key!="_logSequence") {
-			additionalFields.push(
-				"  " +
-				key.substr(1,1024) +
-				": " +
-				'\033[' + 34 + 'm' + 
-				opts[key] +
-				'\033[' + 39 + 'm'
-			);
-		}
-	});
+graylog.prototype.getServer = function () {
+    return this.servers[this.sequence % this.servers.length];
+};
 
-	if (additionalFields.length>0) {
-		consoleString+="\n"+additionalFields.join("\n");
-	}
+graylog.prototype.emergency = function (msg) {
+    msg.level = this.level.EMERG;
+    return this._log(msg);
+};
 
-	util.log(consoleString);
+graylog.prototype.alert = function (msg) {
+    msg.level = this.level.ALERT;
+    return this._log(msg);
+};
+
+graylog.prototype.critical = function (msg) {
+    msg.level = this.level.CRIT;
+    return this._log(msg);
+};
+
+graylog.prototype.error = function (msg) {
+    msg.level = this.level.ERROR;
+    return this._log(msg);
+};
+
+graylog.prototype.warning = function (msg) {
+    msg.level = this.level.WARNING;
+    return this._log(msg);
+};
+graylog.prototype.warn = graylog.prototype.warning;
+
+graylog.prototype.notice = function (msg) {
+    msg.level = this.level.NOTICE;
+    return this._log(msg);
+};
+graylog.prototype.log = graylog.prototype.notice;
+
+graylog.prototype.info = function (msg) {
+    msg.level = this.level.INFO;
+    return this._log(msg);
+};
+
+graylog.prototype.debug = function (msg) {
+    msg.level = this.level.DEBUG;
+    return this._log(msg);
+};
+
+graylog.prototype._log = function log(msg) {
+
+    msg.version    = '1.0';
+    msg.timestamp  = new Date().getTime()/1000 >> 0;
+    msg.host       = this.hostname;
+    msg.facility   = this.facility;
+
+    msg['_logSequence'] = this.sequence++;
+
+    if(msg.stack && msg.message) {
+        msg.short_message = msg.message;
+        msg.full_message  = msg.stack;
+
+        // parse the error stack
+        fileinfo = msg.stack.split('\n')[0];
+        fileinfo = fileinfo.substr(fileinfo.indexOf('('), fileinfo.indeOf(')'));
+        fileinfo = fileinfo.split(':');
+
+        msg.file = fileinfo[0];
+        msg.line = fileinfo[1];
+    }
+
+    var message = new Buffer(JSON.stringify(msg));
+
+    zlib.deflate(message, function (err, buffer) {
+        if (err) {
+            return;
+        }
+
+        var chunkCount = Math.ceil(buffer.length / 8192);
+
+        // If it all fits, just send it
+        if (chunkCount === 1) {
+            this.send(buffer);
+        }
+
+        // Generate a random id in buffer format
+        crypto.randomBytes(8, function(err, id) {
+
+            var chunk = new Buffer(8204),
+                start = 0,
+                stop  = 0;
+
+            // Set up magic number (0 and 1) and chunk total count (11)
+            chunk[0] = 15;
+            chunk[1] = 16;
+            chunk[11] = chunkCount;
+
+            // set message id (2,9)
+            id.copy(chunk, 2, 0, 8);
+
+            for(var i = 0; i < chunkCount; chunkCount++) {
+
+                // Set chunk sequence number
+                chunk[10] = i;
+
+                // Select data from full buffer
+                start = i * 8192;
+                stop  =  Math.min((i+1) * 8192, buffer.length);
+                buffer.copy(chunk, 12, start, stop);
+
+                // Send a chunk of 8192 bytes or less
+                this.send(chunk.slice(0, stop-start));
+            }
+        });
+    });
 }
 
-function log(shortMessage, a, b) {
-	var opts = {};
-	if (typeof a == 'string'){
-		opts = b || {};
-		opts.full_message=a;
-	} else if (typeof a == 'object') {
-		opts = a || {};
-	}
+graylog.prototype.send = function(chunk) {
+    var server = this.getServer();
+    this.client.send(chunk, 0, chunk.length, server.port, server.host, function (err, byteCount) {
+        if (err) {
+            console.log(err);
+        }
+    });
+};
 
-	opts.version="1.0";
-	opts.timestamp = opts.timestamp || new Date().getTime()/1000 >> 0;
-	opts.host = opts.host || GLOBAL.graylogHostname;
-	opts.level = opts.level || GLOBAL.LOG_INFO;
-	opts.facility = opts.facility || GLOBAL.graylogFacility;
-
-	if (opts.stack) {
-		retrieveFileInfo(opts);
-	}
-
-	if (GLOBAL.graylogSequence) {
-		opts['_logSequence'] = GLOBAL.graylogSequence++;
-	}
-
-	opts.short_message = shortMessage;
-	
-	if (GLOBAL.graylogToConsole) { 
-		_logToConsole(shortMessage, opts);
-	}
-
-	var message = new Buffer(JSON.stringify(opts));
-	zlib.deflate(message, function (err, compressedMessage) {
-		if (err) {
-			return;
-		}
-
-		if (compressedMessage.length>8192) { // FIXME: support chunked
-			util.debug("Graylog oops: log message size > 8192, I print to stderr and give up: \n" + message.toString());
-			return;
-		}
-
-		var graylog2Client = dgram.createSocket("udp4");
-		graylog2Client.send(compressedMessage, 0, compressedMessage.length, GLOBAL.graylogPort, GLOBAL.graylogHost, function (err, byteCount) {
-			graylog2Client.close();
-		});
-	});
-}
-
-/**
- * Retrieves the filename and line number where log() was called
- *
- * @param {Object} opts The options object that will be altered with 'file' and 'line' properties
- */
-function retrieveFileInfo(opts){
-	var err = new Error("test"),
-		stack = (err.stack || "").toString().split(/\r?\n/),
-		match;
-
-	for(var i=0, len = stack.length; i<len; i++){
-		if((match = stack[i].match(/^\s*at\s[^\(]+\(([^\):]+):(\d+):\d+\)/))){
-			if(__filename.substr(-match[1].length) == match[1]){
-				continue;
-			}
-			opts.file = match[1];
-			opts.line = Number(match[2]) || 0;
-			break;
-		}
-	}
-
-}
-
-GLOBAL.log = log;
-
+exports.graylog = graylog;
