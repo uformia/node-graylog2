@@ -1,19 +1,27 @@
 {
-  "name": "graylog",
-  "description": "Graylog2 client library for node.js",
+    "name": "graylog",
+    "description": "Graylog2 client library for node.js",
     "homepage" : "http://egorfine.github.com/node-graylog",
-    "bugs" : { "url" : "http://github.com/egorFiNE/node-graylog/issues" },
-  "version": "0.0.13",
-  "author": "Egor Egorov",
-  "engines": {
+    "bugs" : {
+        "url" : "http://github.com/egorFiNE/node-graylog/issues"
+    },
+    "version": "0.0.13",
+    "author": "Egor Egorov",
+    "engines": {
       "node": ">=0.6.11"
-  },
-  "dependencies" : {
-      "generic-pool" : "2.0.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "http://github.com/egorfine/node-graylog.git"
-  },
-  "main" : "./graylog.js"
+    },
+    "dependencies": {
+        "async": "0.1.22"
+    },
+    "devDependencies": {
+        "jshint": "0.9.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "http://github.com/egorfine/node-graylog.git"
+    },
+    "scripts": {
+        "test": "node ./test"
+    },
+    "main" : "./graylog.js"
 }
