@@ -18,6 +18,7 @@ console.log('---------------------------------------------');
 client.log('test1', 'i get this1', {cool: 'beans'});
 client.warn('test2', 'i get this2', {cool: 'beans'});
 client.error('test3', 'i get this3', {cool: 'beans'});
+client.error('customTime', 'i get this3', {cool: 'beans'}, new Date('2012-10-10 13:20:31.619Z'));
 console.log('');
 
 console.log('---------------------------------------------');
