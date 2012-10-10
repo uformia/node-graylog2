@@ -37,41 +37,41 @@ graylog.prototype.getServer = function () {
     return this.servers[this._callCount++ % this.servers.length];
 };
 
-graylog.prototype.emergency = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.EMERGENCY);
+graylog.prototype.emergency = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.EMERGENCY);
 };
 
-graylog.prototype.alert = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.ALERT);
+graylog.prototype.alert = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.ALERT);
 };
 
-graylog.prototype.critical = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.CRIT);
+graylog.prototype.critical = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.CRIT);
 };
 
-graylog.prototype.error = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.ERROR);
+graylog.prototype.error = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.ERROR);
 };
 
-graylog.prototype.warning = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.WARNING);
+graylog.prototype.warning = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.WARNING);
 };
 graylog.prototype.warn = graylog.prototype.warning;
 
-graylog.prototype.notice = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.NOTICE);
+graylog.prototype.notice = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.NOTICE);
 };
 
-graylog.prototype.info = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.INFO);
+graylog.prototype.info = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.INFO);
 };
 graylog.prototype.log = graylog.prototype.info;
 
-graylog.prototype.debug = function (short_message, full_message, additionalFields) {
-    return this._log(short_message, full_message, additionalFields, this.level.DEBUG);
+graylog.prototype.debug = function (short_message, full_message, additionalFields, timestamp) {
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.DEBUG);
 };
 
-graylog.prototype._log = function log(short_message, full_message, additionalFields, level) {
+graylog.prototype._log = function log(short_message, full_message, additionalFields, timestamp, level) {
 
     var payload,
         fileinfo,
@@ -79,7 +79,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         field   = '',
         message = {
             version    : '1.0',
-            timestamp  : new Date().getTime() / 1000 >> 0,
+            timestamp  : (timestamp || new Date()).getTime() / 1000,
             host       : this.hostname,
             facility   : this.facility,
             level      : level
