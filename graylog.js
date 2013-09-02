@@ -1,25 +1,21 @@
 var zlib   = require('zlib'),
     crypto = require('crypto'),
-    async  = require('async'),
     dgram  = require('dgram');
 
 var graylog = function graylog(config) {
-
-    var key;
-
     this.config     = config;
 
     this.servers    = config.servers;
+    this.client     = null;
     this.hostname   = config.hostname || require('os').hostname();
     this.facility   = config.facility || 'Node.js';
 
     this._callCount  = 0;
 
     this._bufferSize = config.bufferSize || this.DEFAULT_BUFFERSIZE;
-    this._dataSize   = this._bufferSize - 12;
 };
 
-graylog.prototype.DEFAULT_BUFFERSIZE = 8192;
+graylog.prototype.DEFAULT_BUFFERSIZE = 1400;  // a bit less than a typical MTU of 1500 to be on the safe side
 
 graylog.prototype.level = {
     EMERG: 0,    // system is unusable
@@ -35,6 +31,25 @@ graylog.prototype.level = {
 
 graylog.prototype.getServer = function () {
     return this.servers[this._callCount++ % this.servers.length];
+};
+
+graylog.prototype.getClient = function () {
+    if (!this.client) {
+        this.client = dgram.createSocket("udp4");
+    }
+
+    return this.client;
+};
+
+graylog.prototype.close = function () {
+    if (this.client) {
+        this.client.close();
+    }
+};
+
+graylog.prototype.reopen = function () {
+    // the next call to getClient() will reinstantiate the socket
+    this.client = null;
 };
 
 graylog.prototype.emergency = function (short_message, full_message, additionalFields, timestamp) {
@@ -107,7 +122,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         additionalFields = full_message || additionalFields;
     }
     else {
-        message.full_message = message.short_message   = JSON.stringify(short_message);
+        message.full_message = message.short_message = JSON.stringify(short_message);
     }
 
     // We insert additional fields
@@ -126,70 +141,81 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
     zlib.deflate(payload, function (err, buffer) {
         if (err) {
+            console.error('Error deflating message:', err);
             return;
         }
 
-        var chunkCount = Math.ceil(buffer.length / that._bufferSize),
-            server     = that.getServer(),
-            client     = dgram.createSocket("udp4");
-
-        if (chunkCount > 128) {
-            return console.error('Cannot send messages bigger than 1022.5K, not sending');
+        // If it all fits, just send it
+        if (buffer.length <= that._bufferSize) {
+            return that.send(buffer, that.getServer());
         }
 
-        // If it all fits, just send it
-        if (chunkCount === 1) {
-            return that.send(buffer, client, server, function () {
-                client.close();
-            });
+        // It didn't fit, so prepare for a chunked stream
+
+        var dataSize   = that._bufferSize - 12,  // the data part of the buffer is the buffer size - header size
+            chunkCount = Math.ceil(buffer.length / dataSize);
+
+        if (chunkCount > 128) {
+            return console.error('Cannot send messages bigger than', dataSize * 128, 'bytes, not sending');
         }
 
         // Generate a random id in buffer format
         crypto.randomBytes(8, function (err, id) {
+            if (err) {
+                return console.error('Error creating message ID:', err);
+            }
 
-            // To be tested: whats faster, sending as we go or prebuffering?
-            var chunk    = new Buffer(that._bufferSize),
-                start    = 0,
-                stop     = 0,
+            // To be tested: what's faster, sending as we go or prebuffering?
+            var server = that.getServer(),
+                chunk = new Buffer(that._bufferSize),
                 chunkSequenceNumber = 0;
 
-            // Set up magic number (0 and 1) and chunk total count (11)
+            // Prepare the header
+
+            // Set up magic number (bytes 0 and 1)
             chunk[0] = 30;
             chunk[1] = 15;
+
+            // Set the total number of chunks (byte 11)
             chunk[11] = chunkCount;
 
-            // set message id (2,9)
+            // Set message id (bytes 2-9)
             id.copy(chunk, 2, 0, 8);
 
-            async.whilst(
-                function () { return chunkSequenceNumber < chunkCount; },
-                function (cb) {
-                    // Set chunk sequence number
-                    chunk[10] = chunkSequenceNumber;
+            function send(err) {
+                if (err || chunkSequenceNumber >= chunkCount) {
+                    // We have reached the end, or had an error
+                    return;
+                }
 
-                    // Select data from full buffer
-                    start = chunkSequenceNumber * that._dataSize;
-                    stop  = Math.min((chunkSequenceNumber + 1) * that._dataSize, buffer.length);
-                    buffer.copy(chunk, 12, start, stop);
+                // Set chunk sequence number (byte 10)
+                chunk[10] = chunkSequenceNumber;
 
-                    chunkSequenceNumber++;
+                // Select data from full buffer
+                var start = chunkSequenceNumber * dataSize;
+                var stop  = Math.min((chunkSequenceNumber + 1) * dataSize, buffer.length);
+                buffer.copy(chunk, 12, start, stop);
 
-                    // Send a chunk of 8192 bytes or less
-                    that.send(chunk.slice(0, stop - start + 12), client, server, cb);
-                },
-                function () { client.close(); }
-            );
+                chunkSequenceNumber++;
+
+                // Send the chunk
+                that.send(chunk.slice(0, stop - start + 12), server, send);
+            }
+
+            send();
         });
     });
 };
 
-graylog.prototype.send = function (chunk, client, server, cb) {
-    client.send(chunk, 0, chunk.length, server.port, server.host, function (err, byteCount) {
+graylog.prototype.send = function (chunk, server, cb) {
+    this.getClient().send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
         if (err) {
-            console.log(err);
+            console.error('Error sending buffer:', err);
         }
 
-        cb();
+        if (cb) {
+            cb(err);
+        }
     });
 };
 

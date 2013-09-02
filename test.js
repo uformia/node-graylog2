@@ -32,7 +32,7 @@ console.log('');
 console.log('---------------------------------------------');
 console.log('Sending data of different sizes (as critical)');
 console.log('---------------------------------------------');
-for (var i = 4; i <= 512; i *= 2) {
+for (var i = 4; i <= 128; i *= 2) {
     file = './data/' + i + '.dat';
     data = fs.readFileSync(file);
     console.log('sending', file);
@@ -42,4 +42,8 @@ console.log('');
 
 console.log('Insertion complete. Please check', 'http://'+servers[0].host+':3000', 'and verify that insertion was successfull');
 console.log('');
+
+setTimeout(function () {
+    client.close();
+}, 2000);
 
