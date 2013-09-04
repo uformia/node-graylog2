@@ -44,6 +44,6 @@ console.log('Insertion complete. Please check', 'http://'+servers[0].host+':3000
 console.log('');
 
 setTimeout(function () {
-    client.close();
+    client.destroy();
 }, 2000);
 

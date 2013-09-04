@@ -3,16 +3,17 @@ var zlib   = require('zlib'),
     dgram  = require('dgram');
 
 var graylog = function graylog(config) {
-    this.config     = config;
+    this.config       = config;
 
-    this.servers    = config.servers;
-    this.client     = null;
-    this.hostname   = config.hostname || require('os').hostname();
-    this.facility   = config.facility || 'Node.js';
+    this.servers      = config.servers;
+    this.client       = null;
+    this.hostname     = config.hostname || require('os').hostname();
+    this.facility     = config.facility || 'Node.js';
 
-    this._callCount  = 0;
+    this._callCount   = 0;
+    this._isDestroyed = false;
 
-    this._bufferSize = config.bufferSize || this.DEFAULT_BUFFERSIZE;
+    this._bufferSize  = config.bufferSize || this.DEFAULT_BUFFERSIZE;
 };
 
 graylog.prototype.DEFAULT_BUFFERSIZE = 1400;  // a bit less than a typical MTU of 1500 to be on the safe side
@@ -34,22 +35,19 @@ graylog.prototype.getServer = function () {
 };
 
 graylog.prototype.getClient = function () {
-    if (!this.client) {
+    if (!this.client && !this._isDestroyed) {
         this.client = dgram.createSocket("udp4");
     }
 
     return this.client;
 };
 
-graylog.prototype.close = function () {
+graylog.prototype.destroy = function () {
     if (this.client) {
         this.client.close();
+		this.client = null;
+		this._isDestroyed = true;
     }
-};
-
-graylog.prototype.reopen = function () {
-    // the next call to getClient() will reinstantiate the socket
-    this.client = null;
 };
 
 graylog.prototype.emergency = function (short_message, full_message, additionalFields, timestamp) {
@@ -152,7 +150,8 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
         // It didn't fit, so prepare for a chunked stream
 
-        var dataSize   = that._bufferSize - 12,  // the data part of the buffer is the buffer size - header size
+        var bufferSize = that._bufferSize,
+            dataSize   = bufferSize - 12,  // the data part of the buffer is the buffer size - header size
             chunkCount = Math.ceil(buffer.length / dataSize);
 
         if (chunkCount > 128) {
@@ -167,7 +166,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
             // To be tested: what's faster, sending as we go or prebuffering?
             var server = that.getServer(),
-                chunk = new Buffer(that._bufferSize),
+                chunk = new Buffer(bufferSize),
                 chunkSequenceNumber = 0;
 
             // Prepare the header
@@ -191,9 +190,10 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
                 // Set chunk sequence number (byte 10)
                 chunk[10] = chunkSequenceNumber;
 
-                // Select data from full buffer
+                // Copy data from full buffer into the chunk
                 var start = chunkSequenceNumber * dataSize;
                 var stop  = Math.min((chunkSequenceNumber + 1) * dataSize, buffer.length);
+
                 buffer.copy(chunk, 12, start, stop);
 
                 chunkSequenceNumber++;
@@ -208,7 +208,16 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 };
 
 graylog.prototype.send = function (chunk, server, cb) {
-    this.getClient().send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
+    var client = this.getClient();
+
+    if (!client) {
+        if (cb) {
+            cb('Socket was destroyed');
+        }
+        return;
+    }
+
+    client.send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
         if (err) {
             console.error('Error sending buffer:', err);
         }
