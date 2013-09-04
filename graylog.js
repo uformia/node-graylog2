@@ -1,8 +1,17 @@
-var zlib   = require('zlib'),
-    crypto = require('crypto'),
-    dgram  = require('dgram');
+var zlib         = require('zlib'),
+    crypto       = require('crypto'),
+    dgram        = require('dgram'),
+    util         = require('util'),
+    EventEmitter = require('events').EventEmitter;
+
+/**
+ * Graylog instances emit errors. That means you really really should listen for them,
+ * or accept uncaught exceptions (node throws if you don't listen for "error").
+ */
 
 var graylog = function graylog(config) {
+    EventEmitter.call(this);
+
     this.config       = config;
 
     this.servers      = config.servers;
@@ -15,6 +24,8 @@ var graylog = function graylog(config) {
 
     this._bufferSize  = config.bufferSize || this.DEFAULT_BUFFERSIZE;
 };
+
+util.inherits(graylog, EventEmitter);
 
 graylog.prototype.DEFAULT_BUFFERSIZE = 1400;  // a bit less than a typical MTU of 1500 to be on the safe side
 
@@ -139,8 +150,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
     zlib.deflate(payload, function (err, buffer) {
         if (err) {
-            console.error('Error deflating message:', err);
-            return;
+            return that.emit('error', err);
         }
 
         // If it all fits, just send it
@@ -155,13 +165,13 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
             chunkCount = Math.ceil(buffer.length / dataSize);
 
         if (chunkCount > 128) {
-            return console.error('Cannot send messages bigger than', dataSize * 128, 'bytes, not sending');
+            return that.emit('error', new Error('Cannot log messages bigger than ' + (dataSize * 128) +  ' bytes'));
         }
 
         // Generate a random id in buffer format
         crypto.randomBytes(8, function (err, id) {
             if (err) {
-                return console.error('Error creating message ID:', err);
+                return that.emit('error', err);
             }
 
             // To be tested: what's faster, sending as we go or prebuffering?
@@ -183,7 +193,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
             function send(err) {
                 if (err || chunkSequenceNumber >= chunkCount) {
-                    // We have reached the end, or had an error
+                    // We have reached the end, or had an error (which will already have been emitted)
                     return;
                 }
 
@@ -208,18 +218,19 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 };
 
 graylog.prototype.send = function (chunk, server, cb) {
-    var client = this.getClient();
+    var that = this,
+        client = this.getClient();
 
     if (!client) {
-        if (cb) {
-            cb('Socket was destroyed');
-        }
-        return;
+        var error = new Error('Socket was already destroyed');
+
+        this.emit('error', error);
+        return cb(error);
     }
 
     client.send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
         if (err) {
-            console.error('Error sending buffer:', err);
+            that.emit('error', err);
         }
 
         if (cb) {
