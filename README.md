@@ -23,15 +23,20 @@ logged as additional data).
 * graylog.debug
 
 ### Code snippets
+
 ```javascript
-    graylog2 = require("graylog2");
-    logger = new graylog2.graylog({
+    var graylog2 = require("graylog2");
+    var logger = new graylog2.graylog({
         servers : [
             { 'host': 127.0.0.1, port: 12201 },
             { 'host': 127.0.0.2, port: 12201 }
         ],
         hostname : 'server.name', // (optional)
         facility : 'Node.js' // (optional)
+    });
+
+    logger.on('error', function (error) {
+        console.error('Error while trying to write to graylog2:', error);
     });
 ```
 
