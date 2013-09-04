@@ -3,7 +3,7 @@
     "description": "Graylog2 client library for node.js",
     "homepage": "http://egorfine.github.com/node-graylog",
     "bugs": {
-        "url": "http://github.com/stelcheck/node-graylog2/issues"
+        "url": "http://github.com/Wizcorp/node-graylog2/issues"
     },
     "version": "0.1.0",
     "author": "Marc Trudel-Belise",
@@ -15,7 +15,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "http://github.com/stelcheck/node-graylog2.git"
+        "url": "http://github.com/Wizcorp/node-graylog2.git"
     },
     "scripts": {
         "test": "node ./test"
