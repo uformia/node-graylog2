@@ -2,7 +2,7 @@
 * Bugfix: chunk count calculation was ignoring the header-overhead.
 * All log operations now use a single udp socket.
 * To be more friendly to lower MTUs, lowered the default buffer size to 1400 bytes.
-* Added close() and reopen() functions.
+* Added destroy() function that closes the UDP socket.
 * Removed async requirement.
 * Removed some unused variables.
 * Removed the larger test files (256 and 512KB) because they don't fit the new default buffer limit.
