@@ -41,7 +41,7 @@ for (var i = 4; i <= 128; i *= 2) {
 console.log('');
 
 console.log('---------------------------------------------');
-console.log('Sending compbination of parameters');
+console.log('Sending different parameters');
 console.log('---------------------------------------------');
 client.log('ParametersTest - Only short message');
 client.log('ParametersTest - Short message and json', {cool: 'beans'});
