@@ -108,6 +108,10 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
             facility   : this.facility,
             level      : level
         };
+	if (typeof(full_message) === 'object' && additionalFields === undefined) {
+		additionalFields = full_message;
+		full_message = undefined;
+	}
 
     if (typeof(short_message) !== 'object') {
         // We normally set the data

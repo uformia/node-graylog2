@@ -40,6 +40,16 @@ for (var i = 4; i <= 128; i *= 2) {
 }
 console.log('');
 
+console.log('---------------------------------------------');
+console.log('Sending compbination of parameters');
+console.log('---------------------------------------------');
+client.log('ParametersTest - Only short message');
+client.log('ParametersTest - Short message and json', {cool: 'beans'});
+client.log('ParametersTest - Short message and full message', 'Full message');
+client.log('ParametersTest - Short Message with full message and json', 'Full message', {cool: 'beans'});
+console.log('');
+
+
 console.log('Insertion complete. Please check', 'http://' + servers[0].host + ':3000', 'and verify that insertion was successfull');
 console.log('');
 
