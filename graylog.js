@@ -62,7 +62,7 @@ graylog.prototype.destroy = function () {
 };
 
 graylog.prototype.emergency = function (short_message, full_message, additionalFields, timestamp) {
-    return this._log(short_message, full_message, additionalFields, timestamp, this.level.EMERGENCY);
+    return this._log(short_message, full_message, additionalFields, timestamp, this.level.EMERG);
 };
 
 graylog.prototype.alert = function (short_message, full_message, additionalFields, timestamp) {
