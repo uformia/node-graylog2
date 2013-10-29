@@ -1,3 +1,9 @@
+0.1.1: October 29, 2013
+* The Emergency level was yielding "undefined", making Graylog2 fall back to the default Alert level.
+* According to documentation log method should handle following invocation:
+  `client.log('short message', {param: "value"})`, but instead of sending additional fields, JSON
+  was treated like full message field.
+
 0.1.0: September 3, 2013
 * Replaced all console.error calls with emit('error').
   *Warning*: you really must listen for these or node will throw uncatchable exceptions!
