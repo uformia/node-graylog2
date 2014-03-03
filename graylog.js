@@ -48,6 +48,11 @@ graylog.prototype.getServer = function () {
 graylog.prototype.getClient = function () {
     if (!this.client && !this._isDestroyed) {
         this.client = dgram.createSocket("udp4");
+
+		var that = this;
+		this.client.on('error', function (err) {
+			that.emit('error', err);
+		});
     }
 
     return this.client;
@@ -56,6 +61,7 @@ graylog.prototype.getClient = function () {
 graylog.prototype.destroy = function () {
     if (this.client) {
         this.client.close();
+        this.client.removeAllListeners();
 		this.client = null;
 		this._isDestroyed = true;
     }
