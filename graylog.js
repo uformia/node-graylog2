@@ -49,10 +49,10 @@ graylog.prototype.getClient = function () {
     if (!this.client && !this._isDestroyed) {
         this.client = dgram.createSocket("udp4");
 
-		var that = this;
-		this.client.on('error', function (err) {
-			that.emit('error', err);
-		});
+        var that = this;
+        this.client.on('error', function (err) {
+            that.emit('error', err);
+        });
     }
 
     return this.client;
@@ -62,8 +62,8 @@ graylog.prototype.destroy = function () {
     if (this.client) {
         this.client.close();
         this.client.removeAllListeners();
-		this.client = null;
-		this._isDestroyed = true;
+        this.client = null;
+        this._isDestroyed = true;
     }
 };
 
@@ -115,14 +115,14 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
             level      : level
         };
 
-	if (typeof(short_message) !== 'object' && typeof(full_message) === 'object' && additionalFields === undefined) {
+    if (typeof(short_message) !== 'object' && typeof(full_message) === 'object' && additionalFields === undefined) {
         // Only short message and additional fields are available
         message.short_message   = short_message;
         message.full_message    = short_message;
 
         additionalFields = full_message;
-	}
-	else  if (typeof(short_message) !== 'object') {
+    }
+    else  if (typeof(short_message) !== 'object') {
         // We normally set the data
         message.short_message   = short_message;
         message.full_message    = full_message || short_message;
