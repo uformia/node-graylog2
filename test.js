@@ -49,11 +49,7 @@ client.log('ParametersTest - Short message and full message', 'Full message');
 client.log('ParametersTest - Short Message with full message and json', 'Full message', {cool: 'beans'});
 console.log('');
 
-
-console.log('Insertion complete. Please check', 'http://' + servers[0].host + ':3000', 'and verify that insertion was successfull');
-console.log('');
-
-setTimeout(function () {
-    client.destroy();
-}, 2000);
-
+client.close(function () {
+	console.log('Insertion complete. Please check', 'http://' + servers[0].host + ':3000', 'and verify that insertion was successfull');
+	console.log('');
+});

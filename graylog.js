@@ -19,7 +19,11 @@ var graylog = function graylog(config) {
     this.hostname     = config.hostname || require('os').hostname();
     this.facility     = config.facility || 'Node.js';
 
+    this._unsentMessages = 0;
+    this._unsentChunks = 0;
     this._callCount   = 0;
+
+    this._onClose = null;
     this._isDestroyed = false;
 
     this._bufferSize  = config.bufferSize || this.DEFAULT_BUFFERSIZE;
@@ -102,6 +106,7 @@ graylog.prototype.debug = function (short_message, full_message, additionalField
 };
 
 graylog.prototype._log = function log(short_message, full_message, additionalFields, timestamp, level) {
+    this._unsentMessages += 1;
 
     var payload,
         fileinfo,
@@ -121,13 +126,11 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         message.full_message    = short_message;
 
         additionalFields = full_message;
-    }
-    else  if (typeof(short_message) !== 'object') {
+    } else  if (typeof(short_message) !== 'object') {
         // We normally set the data
         message.short_message   = short_message;
         message.full_message    = full_message || short_message;
-    }
-    else if (short_message.stack && short_message.message) {
+    } else if (short_message.stack && short_message.message) {
 
         // Short message is an Error message, we process accordingly
         message.short_message = short_message.message;
@@ -142,8 +145,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         message.line = fileinfo[1];
 
         additionalFields = full_message || additionalFields;
-    }
-    else {
+    } else {
         message.full_message = message.short_message = JSON.stringify(short_message);
     }
 
@@ -163,34 +165,38 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
     zlib.deflate(payload, function (err, buffer) {
         if (err) {
-            return that.emit('error', err);
+            that._unsentMessages -= 1;
+            return that.emitError(err);
         }
 
         // If it all fits, just send it
         if (buffer.length <= that._bufferSize) {
+            that._unsentMessages -= 1;
             return that.send(buffer, that.getServer());
         }
 
         // It didn't fit, so prepare for a chunked stream
 
-        var bufferSize = that._bufferSize,
-            dataSize   = bufferSize - 12,  // the data part of the buffer is the buffer size - header size
-            chunkCount = Math.ceil(buffer.length / dataSize);
+        var bufferSize = that._bufferSize;
+        var dataSize   = bufferSize - 12;  // the data part of the buffer is the buffer size - header size
+        var chunkCount = Math.ceil(buffer.length / dataSize);
 
         if (chunkCount > 128) {
-            return that.emit('error', new Error('Cannot log messages bigger than ' + (dataSize * 128) +  ' bytes'));
+            that._unsentMessages -= 1;
+            return that.emitError('Cannot log messages bigger than ' + (dataSize * 128) +  ' bytes');
         }
 
         // Generate a random id in buffer format
         crypto.randomBytes(8, function (err, id) {
             if (err) {
-                return that.emit('error', err);
+                that._unsentMessages -= 1;
+                return that.emitError(err);
             }
 
             // To be tested: what's faster, sending as we go or prebuffering?
-            var server = that.getServer(),
-                chunk = new Buffer(bufferSize),
-                chunkSequenceNumber = 0;
+            var server = that.getServer();
+            var chunk = new Buffer(bufferSize);
+            var chunkSequenceNumber = 0;
 
             // Prepare the header
 
@@ -207,6 +213,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
             function send(err) {
                 if (err || chunkSequenceNumber >= chunkCount) {
                     // We have reached the end, or had an error (which will already have been emitted)
+                    that._unsentMessages -= 1;
                     return;
                 }
 
@@ -241,7 +248,11 @@ graylog.prototype.send = function (chunk, server, cb) {
         return cb(error);
     }
 
+    this._unsentChunks += 1;
+
     client.send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
+        that._unsentChunks -= 1;
+
         if (err) {
             that.emit('error', err);
         }
@@ -249,7 +260,38 @@ graylog.prototype.send = function (chunk, server, cb) {
         if (cb) {
             cb(err);
         }
+
+        if (that._unsentChunks === 0 && that._unsentMessages === 0 && that._onClose) {
+            that._onClose();
+        }
     });
+};
+
+graylog.prototype.emitError = function (err) {
+    this.emit('error', err);
+
+    if (this._unsentChunks === 0 && this._unsentMessages === 0 && this._onClose) {
+        this._onClose();
+    }
+};
+
+graylog.prototype.close = function (cb) {
+    if (!cb) {
+        throw new Error('Close must have a callback as its first argument');
+    }
+
+    if (this._onClose) {
+        process.nextTick(function () {
+            return cb(new Error('Close was already called once'));
+        });
+    }
+
+    var that = this;
+
+    this._onClose = function () {
+        that.destroy();
+        cb();
+    };
 };
 
 exports.graylog = graylog;
