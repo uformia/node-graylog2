@@ -282,11 +282,12 @@ graylog.prototype.close = function (cb) {
     if (this._onClose || this._isDestroyed) {
         return process.nextTick(function () {
             var error = new Error('Close was already called once');
-            that.emit('error', error);
 
             if (cb) {
                 return cb(error);
             }
+
+            that.emit('error', error);
         });
     }
 
