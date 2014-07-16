@@ -277,9 +277,16 @@ graylog.prototype.emitError = function (err) {
 };
 
 graylog.prototype.close = function (cb) {
+    var that = this;
+
     if (this._onClose || this._isDestroyed) {
         return process.nextTick(function () {
-            return cb(new Error('Close was already called once'));
+            var error = new Error('Close was already called once');
+            that.emit('error', error);
+
+            if (cb) {
+                return cb(error);
+            }
         });
     }
 
