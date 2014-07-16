@@ -67,7 +67,7 @@ graylog.prototype.destroy = function () {
         this.client.close();
         this.client.removeAllListeners();
         this.client = null;
-		this._onClose = null;
+        this._onClose = null;
         this._isDestroyed = true;
     }
 };
@@ -278,7 +278,7 @@ graylog.prototype.emitError = function (err) {
 
 graylog.prototype.close = function (cb) {
     if (this._onClose || this._isDestroyed) {
-        process.nextTick(function () {
+        return process.nextTick(function () {
             return cb(new Error('Close was already called once'));
         });
     }
@@ -288,9 +288,9 @@ graylog.prototype.close = function (cb) {
     this._onClose = function () {
         that.destroy();
 
-		if (cb) {
-			cb();
-		}
+        if (cb) {
+            cb();
+        }
     };
 };
 
