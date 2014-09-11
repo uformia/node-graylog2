@@ -43,6 +43,7 @@ var logger = new graylog2.graylog({
 logger.on('error', function (error) {
     console.error('Error while trying to write to graylog2:', error);
 });
+
 ```
 
 Short message:
@@ -75,6 +76,14 @@ logger.log("What we've got here is...failure to communicate", "Some men you just
         cool: "beans"
     }
 );
+```
+
+Flush all log messages and close down:
+```javascript
+logger.close(function(){
+    console.log('All done - cookie now?');
+    process.exit();
+});
 ```
 
 ## Example
