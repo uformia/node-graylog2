@@ -98,11 +98,6 @@ It's a miracle. Get it at http://www.graylog2.org/
 
     npm install graylog2
 
-## License
-
-See LICENSE file. Basically, it's a kind of "do-whatever-you-want-for-free" license.
-
 ## Original author
 
 Egor Egorov <me@egorfine.com>
-
