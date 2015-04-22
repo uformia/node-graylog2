@@ -6,6 +6,12 @@
   "bugs": {
     "url": "http://github.com/Wizcorp/node-graylog2/issues"
   },
+  "contributors": [
+    {
+      "name": "Egor Egorov",
+      "email": "me@egorfine.com"
+    }
+  ],
   "devDependencies": {
     "jshint": "0.9.1"
   },

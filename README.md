@@ -97,7 +97,3 @@ It's a miracle. Get it at http://www.graylog2.org/
 ## Installation
 
     npm install graylog2
-
-## Original author
-
-Egor Egorov <me@egorfine.com>
