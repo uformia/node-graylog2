@@ -291,8 +291,6 @@ graylog.prototype.close = function (cb) {
         });
     }
 
-    var that = this;
-
     this._onClose = function () {
         that.destroy();
 
