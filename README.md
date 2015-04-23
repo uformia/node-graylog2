@@ -1,4 +1,5 @@
 # node-graylog2
+[![NPM version](http://img.shields.io/npm/v/graylog2.svg?style=flat-square)](https://www.npmjs.org/package/graylog2) [![NPM license](http://img.shields.io/npm/l/graylog2.svg?style=flat-square)](https://www.npmjs.org/package/graylog2)
 
 Graylog2 client library for Node.js, based on node-graylog. This
 has been heavily modified to the point where there is not much left
