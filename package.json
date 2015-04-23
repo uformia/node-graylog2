@@ -10,6 +10,10 @@
     {
       "name": "Egor Egorov",
       "email": "me@egorfine.com"
+    },
+    {
+      "name": "Sean Lang",
+      "email": "slang800@gmail.com"
     }
   ],
   "devDependencies": {
