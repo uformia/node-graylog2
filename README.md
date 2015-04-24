@@ -1,4 +1,5 @@
 # node-graylog2
+[![NPM version](http://img.shields.io/npm/v/graylog2.svg?style=flat-square)](https://www.npmjs.org/package/graylog2) [![NPM license](http://img.shields.io/npm/l/graylog2.svg?style=flat-square)](https://www.npmjs.org/package/graylog2)
 
 Graylog2 client library for Node.js, based on node-graylog. This
 has been heavily modified to the point where there is not much left
@@ -97,12 +98,3 @@ It's a miracle. Get it at http://www.graylog2.org/
 ## Installation
 
     npm install graylog2
-
-## License
-
-See LICENSE file. Basically, it's a kind of "do-whatever-you-want-for-free" license.
-
-## Original author
-
-Egor Egorov <me@egorfine.com>
-

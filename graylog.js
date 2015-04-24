@@ -251,7 +251,7 @@ graylog.prototype.send = function (chunk, server, cb) {
 
     this._unsentChunks += 1;
 
-    client.send(chunk, 0, chunk.length, server.port, server.host, function (err/*, bytes */) {
+    client.send(chunk, 0, chunk.length, server.port, server.host, function (err) {
         that._unsentChunks -= 1;
 
         if (err) {
@@ -290,8 +290,6 @@ graylog.prototype.close = function (cb) {
             that.emit('error', error);
         });
     }
-
-    var that = this;
 
     this._onClose = function () {
         that.destroy();
