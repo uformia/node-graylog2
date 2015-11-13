@@ -298,6 +298,12 @@ graylog.prototype.close = function (cb) {
             cb();
         }
     };
+
+    if (this._unsentChunks === 0 && this._unsentMessages === 0) {
+        process.nextTick(function () {
+            that._onClose();
+        });
+    }
 };
 
 exports.graylog = graylog;
