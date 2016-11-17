@@ -18,6 +18,7 @@ var graylog = function graylog(config) {
     this.client       = null;
     this.hostname     = config.hostname || require('os').hostname();
     this.facility     = config.facility || 'Node.js';
+    this.deflate      = config.deflate;
 
     this._unsentMessages = 0;
     this._unsentChunks = 0;
@@ -164,7 +165,7 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
     // Compression
     payload = new Buffer(JSON.stringify(message));
 
-    zlib.deflate(payload, function (err, buffer) {
+    function sendPayload(err, buffer) {
         if (err) {
             that._unsentMessages -= 1;
             return that.emitError(err);
@@ -235,7 +236,13 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
 
             send();
         });
-    });
+    }
+
+    if (this.deflate === false) { // default to true
+      sendPayload(null, payload);
+    } else {
+      zlib.deflate(payload, sendPayload);
+    }
 };
 
 graylog.prototype.send = function (chunk, server, cb) {
