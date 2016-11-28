@@ -238,7 +238,8 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         });
     }
 
-    if (this.deflate) {
+    // only deflate if enabled and the uncompressed payload doesn't fit in the buffer
+    if (this.deflate && payload.length > this._bufferSize) {
       zlib.deflate(payload, sendPayload);
     } else {
       sendPayload(null, payload);
