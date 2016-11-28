@@ -18,7 +18,7 @@ var graylog = function graylog(config) {
     this.client       = null;
     this.hostname     = config.hostname || require('os').hostname();
     this.facility     = config.facility || 'Node.js';
-    this.deflate      = config.deflate;
+    this.deflate      = config.deflate !== false; // default to true
 
     this._unsentMessages = 0;
     this._unsentChunks = 0;
@@ -238,10 +238,10 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         });
     }
 
-    if (this.deflate === false) { // default to true
-      sendPayload(null, payload);
-    } else {
+    if (this.deflate) {
       zlib.deflate(payload, sendPayload);
+    } else {
+      sendPayload(null, payload);
     }
 };
 
