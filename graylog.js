@@ -18,7 +18,7 @@ var graylog = function graylog(config) {
     this.client       = null;
     this.hostname     = config.hostname || require('os').hostname();
     this.facility     = config.facility || 'Node.js';
-    this.deflate      = config.deflate !== false; // default to true
+    this.deflate      = config.deflate || 'optimal';
 
     this._unsentMessages = 0;
     this._unsentChunks = 0;
@@ -238,11 +238,10 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
         });
     }
 
-    // only deflate if enabled and the uncompressed payload doesn't fit in the buffer
-    if (this.deflate && payload.length > this._bufferSize) {
-      zlib.deflate(payload, sendPayload);
-    } else {
+    if (this.deflate === 'never' || (this.deflate === 'optimal' && payload.length <= this._bufferSize)) {
       sendPayload(null, payload);
+    } else {
+      zlib.deflate(payload, sendPayload);
     }
 };
 

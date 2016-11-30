@@ -52,14 +52,14 @@ console.log('');
 console.log('---------------------------------------------');
 console.log('Sending without deflate');
 console.log('---------------------------------------------');
-client.deflate = false;
+client.deflate = 'never';
 for (var i = 4; i <= 64; i *= 2) {
     file = './data/' + i + '.dat';
     data = fs.readFileSync(file);
     console.log('sending', file);
     client.critical('Test 4 ' + file, data.toString(), {datafile: i + '.dat'});
 }
-client.deflate = true;
+client.deflate = 'optimal';
 console.log('');
 
 client.close(function () {
