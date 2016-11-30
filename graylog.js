@@ -2,7 +2,8 @@ var zlib         = require('zlib'),
     crypto       = require('crypto'),
     dgram        = require('dgram'),
     util         = require('util'),
-    EventEmitter = require('events').EventEmitter;
+    EventEmitter = require('events').EventEmitter,
+    assert       = require('assert');
 
 /**
  * Graylog instances emit errors. That means you really really should listen for them,
@@ -19,6 +20,9 @@ var graylog = function graylog(config) {
     this.hostname     = config.hostname || require('os').hostname();
     this.facility     = config.facility || 'Node.js';
     this.deflate      = config.deflate || 'optimal';
+    assert(
+      this.deflate === 'optimal' || this.deflate === 'always' || this.deflate === 'never',
+      'deflate must be one of "optimal", "always", or "never". was "' + this.deflate + '"');
 
     this._unsentMessages = 0;
     this._unsentChunks = 0;
