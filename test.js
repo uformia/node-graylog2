@@ -1,5 +1,6 @@
 var graylog = require('./graylog'),
     fs      = require('fs'),
+    assert  = require('assert'),
     file,
     data,
     servers = [
@@ -49,7 +50,36 @@ client.log('ParametersTest - Short message and full message', 'Full message');
 client.log('ParametersTest - Short Message with full message and json', 'Full message', {cool: 'beans'});
 console.log('');
 
+console.log('---------------------------------------------');
+console.log('Sending without deflate');
+console.log('---------------------------------------------');
+client.deflate = 'never';
+for (var i = 4; i <= 64; i *= 2) {
+    file = './data/' + i + '.dat';
+    data = fs.readFileSync(file);
+    console.log('sending', file);
+    client.critical('Test 4 ' + file, data.toString(), {datafile: i + '.dat'});
+}
+client.deflate = 'optimal';
+console.log('');
+
 client.close(function () {
     console.log('Insertion complete. Please check', 'http://' + servers[0].host + ':3000', 'and verify that insertion was successfull');
     console.log('');
 });
+
+console.log('---------------------------------------------');
+console.log('Checking deflate assertion');
+console.log('---------------------------------------------');
+try {
+  new graylog.graylog({
+      servers: servers,
+      facility: 'Test logger / Node.JS Test Script',
+      deflate: 'not an option'
+  });
+  throw new Error('should not get here')
+} catch (err) {
+  assert(
+    err.message === 'deflate must be one of "optimal", "always", or "never". was "not an option"',
+    'assertion msg was wrong: ' + err.message);
+}
