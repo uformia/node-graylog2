@@ -30,8 +30,8 @@ is now supported.
 var graylog2 = require("graylog2");
 var logger = new graylog2.graylog({
     servers: [
-        { 'host': 127.0.0.1, port: 12201 },
-        { 'host': 127.0.0.2, port: 12201 }
+        { 'host': '127.0.0.1', port: 12201 },
+        { 'host': '127.0.0.2', port: 12201 }
     ],
     hostname: 'server.name', // the name of this host
                              // (optional, default: os.hostname())
@@ -56,9 +56,7 @@ logger.log("What we've got here is...failure to communicate");
 Long message:
 
 ```javascript
-logger.log("What we've got here is...failure to communicate", "Some men you just
-    can't reach. So you get what we had here last week, which is the way he wants
-    it... well, he gets it. I don't like it any more than you men.");
+logger.log("What we've got here is...failure to communicate", "Some men you just can't reach. So you get what we had here last week, which is the way he wants it... well, he gets it. I don't like it any more than you men.");
 ```
 
 Short with additional data:
@@ -70,9 +68,7 @@ logger.log("What we've got here is...failure to communicate", { cool: 'beans' })
 Long with additional data:
 
 ```javascript
-logger.log("What we've got here is...failure to communicate", "Some men you just
-    can't reach. So you get what we had here last week, which is the way he wants
-    it... well, he gets it. I don't like it any more than you men.",
+logger.log("What we've got here is...failure to communicate", "Some men you just can't reach. So you get what we had here last week, which is the way he wants it... well, he gets it. I don't like it any more than you men.",
     {
         cool: "beans"
     }
