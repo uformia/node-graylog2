@@ -31,5 +31,9 @@
   },
   "scripts": {
     "test": "node ./test"
+  },
+  "dependencies": {
+    "bfj": "^7.0.1",
+    "concat-stream": "^2.0.0"
   }
 }

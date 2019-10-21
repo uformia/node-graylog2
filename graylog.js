@@ -3,7 +3,9 @@ var zlib         = require('zlib'),
     dgram        = require('dgram'),
     util         = require('util'),
     EventEmitter = require('events').EventEmitter,
-    assert       = require('assert');
+    assert       = require('assert'),
+    bfj          = require('bfj'),
+    concat       = require('concat-stream');
 
 /**
  * Graylog instances emit errors. That means you really really should listen for them,
@@ -167,86 +169,98 @@ graylog.prototype._log = function log(short_message, full_message, additionalFie
     }
 
     // Compression
-    payload = new Buffer(JSON.stringify(message));
+    var streamifyOptions = {
+        space: 0,
+        promises: 'ignore',
+        circular: 'ignore',
+    };
 
-    function sendPayload(err, buffer) {
-        if (err) {
-            that._unsentMessages -= 1;
-            return that.emitError(err);
-        }
+    var jsonstream = bfj.streamify(message, streamifyOptions);
+    jsonstream.on('error', function(err) {
+        that.emitError(err);
+    });
+    jsonstream
+      .pipe(concat(function(payload) {
+          function sendPayload(err, buffer) {
+              if (err) {
+                  that._unsentMessages -= 1;
+                  return that.emitError(err);
+              }
 
-        // If it all fits, just send it
-        if (buffer.length <= that._bufferSize) {
-            that._unsentMessages -= 1;
-            return that.send(buffer, that.getServer());
-        }
+              // If it all fits, just send it
+              if (buffer.length <= that._bufferSize) {
+                  that._unsentMessages -= 1;
+                  return that.send(buffer, that.getServer());
+              }
 
-        // It didn't fit, so prepare for a chunked stream
+              // It didn't fit, so prepare for a chunked stream
 
-        var bufferSize = that._bufferSize;
-        var dataSize   = bufferSize - 12;  // the data part of the buffer is the buffer size - header size
-        var chunkCount = Math.ceil(buffer.length / dataSize);
+              var bufferSize = that._bufferSize;
+              var dataSize   = bufferSize - 12;  // the data part of the buffer is the buffer size - header size
+              var chunkCount = Math.ceil(buffer.length / dataSize);
 
-        if (chunkCount > 128) {
-            that._unsentMessages -= 1;
-            return that.emitError('Cannot log messages bigger than ' + (dataSize * 128) +  ' bytes');
-        }
+              if (chunkCount > 128) {
+                  that._unsentMessages -= 1;
+                  return that.emitError('Cannot log messages bigger than ' + (dataSize * 128) +  ' bytes');
+              }
 
-        // Generate a random id in buffer format
-        crypto.randomBytes(8, function (err, id) {
-            if (err) {
-                that._unsentMessages -= 1;
-                return that.emitError(err);
-            }
+              // Generate a random id in buffer format
+              crypto.randomBytes(8, function (err, id) {
+                  if (err) {
+                      that._unsentMessages -= 1;
+                      return that.emitError(err);
+                  }
 
-            // To be tested: what's faster, sending as we go or prebuffering?
-            var server = that.getServer();
-            var chunk = new Buffer(bufferSize);
-            var chunkSequenceNumber = 0;
+                  // To be tested: what's faster, sending as we go or prebuffering?
+                  var server = that.getServer();
+                  var chunk = new Buffer(bufferSize);
+                  var chunkSequenceNumber = 0;
 
-            // Prepare the header
+                  // Prepare the header
 
-            // Set up magic number (bytes 0 and 1)
-            chunk[0] = 30;
-            chunk[1] = 15;
+                  // Set up magic number (bytes 0 and 1)
+                  chunk[0] = 30;
+                  chunk[1] = 15;
 
-            // Set the total number of chunks (byte 11)
-            chunk[11] = chunkCount;
+                  // Set the total number of chunks (byte 11)
+                  chunk[11] = chunkCount;
 
-            // Set message id (bytes 2-9)
-            id.copy(chunk, 2, 0, 8);
+                  // Set message id (bytes 2-9)
+                  id.copy(chunk, 2, 0, 8);
 
-            function send(err) {
-                if (err || chunkSequenceNumber >= chunkCount) {
-                    // We have reached the end, or had an error (which will already have been emitted)
-                    that._unsentMessages -= 1;
-                    return;
-                }
+                  function send(err) {
+                      if (err || chunkSequenceNumber >= chunkCount) {
+                          // We have reached the end, or had an error (which will already have been emitted)
+                          that._unsentMessages -= 1;
+                          return;
+                      }
 
-                // Set chunk sequence number (byte 10)
-                chunk[10] = chunkSequenceNumber;
+                      // Set chunk sequence number (byte 10)
+                      chunk[10] = chunkSequenceNumber;
 
-                // Copy data from full buffer into the chunk
-                var start = chunkSequenceNumber * dataSize;
-                var stop  = Math.min((chunkSequenceNumber + 1) * dataSize, buffer.length);
+                      // Copy data from full buffer into the chunk
+                      var start = chunkSequenceNumber * dataSize;
+                      var stop  = Math.min((chunkSequenceNumber + 1) * dataSize, buffer.length);
 
-                buffer.copy(chunk, 12, start, stop);
+                      buffer.copy(chunk, 12, start, stop);
 
-                chunkSequenceNumber++;
+                      chunkSequenceNumber++;
 
-                // Send the chunk
-                that.send(chunk.slice(0, stop - start + 12), server, send);
-            }
+                      // Send the chunk
+                      that.send(chunk.slice(0, stop - start + 12), server, send);
+                  }
 
-            send();
-        });
-    }
+                  send();
+              });
+          }
 
-    if (this.deflate === 'never' || (this.deflate === 'optimal' && payload.length <= this._bufferSize)) {
-      sendPayload(null, payload);
-    } else {
-      zlib.deflate(payload, sendPayload);
-    }
+          if (this.deflate === 'never' || (this.deflate === 'optimal' && payload.length <= this._bufferSize)) {
+              sendPayload(null, payload);
+          } else {
+              zlib.deflate(payload, sendPayload);
+          }
+      }));
+
 };
 
 graylog.prototype.send = function (chunk, server, cb) {
